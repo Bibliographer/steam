@@ -8,7 +8,7 @@ purchase = subset(data, status =="purchase")
 purchase[3] = NULL 
 purchase[4] = NULL 
 purchase[3] = NULL 
-
+пп
  
 Купленные игры в стим:
   length(unique(purchase$game))
@@ -66,47 +66,80 @@ STEAM = subset(play, play$game == "Dota 2" | play$game == "Counter-Strike Global
 library(reshape)
 library(Matrix)
 
-matrix = cast(STEAM, userID ~ game)
+# matrix = cast(STEAM, userID ~ game)
 
+
+matrix <- read_delim("~/steam/STEAM1.csv", ";", escape_double = FALSE, locale = locale(grouping_mark = "."), trim_ws = TRUE)
 matrix[,1] = NULL
 
-for (i in(1:dim(matrix)[2])) {
-  matrix[,i] <- as.numeric(matrix[,i])
-}
 
-matrix1 = data.matrix(matrix)
+
+matrix = data.matrix(matrix)
 
 
 
-matrix1[is.na(matrix1)] <- 0 
 
-
-for (i in(2:dim(matrix)[2])) {
-  matrix1[,i] = norm(matrix1[,i])
+for (i in (1:dim(matrix)[1])) { #горизонтальное нормирование
+  matrix[i,] = (matrix[i,]-min(matrix[i,], na.rm = TRUE))/(max(matrix[i,], na.rm = TRUE)-min(matrix[i,], na.rm = TRUE))
 }
 
 
-steam_matrix <- as(matrix1, "dgCMatrix")
+ #for (i in (1:dim(matrix)[2])) { #вертикальное нормирование
+ # matrix[,i] = (matrix[,i]-min(matrix[,i], na.rm = TRUE))/(max(matrix[,i], na.rm = TRUE)-min(matrix[,i], na.rm = TRUE))
+#}
+
+
+ matrix = 6.25*matrix
+
+steam_matrix <- as(matrix, "realRatingMatrix")
+
+
+image(as.matrix(similarity_users10), main = "User similarity")
+
+
+
+ratings_steam <- steam_matrix[rowCounts(steam_matrix) > 5] # люди, игравшие больше, чем в 5 игр
+
+
+average_ratings_per_user <- rowMeans(ratings_steam)
+ggplot()+geom_histogram(aes(x=average_ratings_per_user)) +
+  ggtitle("Распределение средних оценок пользователей")
+
+
+
+recc_model <- Recommender(data = steam_data_train, method = "UBCF")
+
+# МЫ задаем матрицу!
+
+
+steam_predicted <- predict(object = recc_model, steam_data_test, n = 6)
+recc_predicted
 
 
 
 
-new("realRatingMatrix", data = steam_matrix)
 
+set.seed(100)
+steam.test.ind = sample(seq_len(nrow(steam_matrix)), size = nrow(steam_matrix)*0.2)
+steam.test = steam_matrix[steam.test.ind,]
+steam.main = steam_matrix[-steam.test.ind,]
 
+recc_model <- Recommender(data = steam.test, method = "IBCF", parameter = list(k = 30))
+steam_predicted <- predict(object = recc_model, newdata = steam.test, n = 6)
+str(steam_predicted)
 
+model_details <- getModel(recc_model)
+model_details$description
+model_details$sim[1:5, 1:5]
 
-norm = function(x) {
-  y = (x-min(x, na.rm = TRUE))/(max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
-  return(y)}
+recc_user_1 <- steam_predicted@items[[1]]
+recc_user_1
+games_user_1 <- steam_predicted@itemLabels[recc_user_1]
+games_user_1
 
-
-
-
-
-
-
-
-
+recc_matrix <- sapply(recc_predicted@items, function(n){
+  colnames(ratings_steam)[n]
+})
+dim(recc_matrix)
 
 
