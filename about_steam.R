@@ -76,29 +76,38 @@ matrix[,1] = NULL
 
 matrix = data.matrix(matrix)
 
+sqmatrix = sqrt(matrix) #уменьшить темп роста оценки 
+
+numNAs <- apply(sqmatrix, 1, function(z) sum(is.na(z)))
+sqmatrix = sqmatrix[numNAs < 94,] # оценено больше 5 игр
+sum(rowSums(!is.na(sqmatrix)) < 94)
+
+#горизонтальное нормировапние
+for (i in (1:dim(sqmatrix)[1])) {
+sqmatrix[i,] = cut(sqmatrix[i,], breaks = unique(quantile(sqmatrix[i,], c(.0, .20, .40, .60, 0.80, 1), na.rm = TRUE)),include.lowest = TRUE) }
+max(sqmatrix, na.rm = TRUE)
 
 
 
-for (i in (1:dim(matrix)[1])) { #горизонтальное нормирование
-  matrix[i,] = (matrix[i,]-min(matrix[i,], na.rm = TRUE))/(max(matrix[i,], na.rm = TRUE)-min(matrix[i,], na.rm = TRUE))
-}
-
-
- #for (i in (1:dim(matrix)[2])) { #вертикальное нормирование
- # matrix[,i] = (matrix[,i]-min(matrix[,i], na.rm = TRUE))/(max(matrix[,i], na.rm = TRUE)-min(matrix[,i], na.rm = TRUE))
-#}
-
-
- matrix = 6.25*matrix
-
-steam_matrix <- as(matrix, "realRatingMatrix")
-
-
-image(as.matrix(similarity_users10), main = "User similarity")
 
 
 
-ratings_steam <- steam_matrix[rowCounts(steam_matrix) > 5] # люди, игравшие больше, чем в 5 игр
+
+
+steam_matrix <- as(sqmatrix, "realRatingMatrix")
+
+similarity_users10 <- similarity(steam_matrix[1:10, ], method = "cosine", which = "users")
+
+#вертикальное нормировапние
+sqmatrix1 = sqmatrix
+for (i in (1:dim(sqmatrix)[2])) {
+  sqmatrix1[,i] = cut(sqmatrix[,i], breaks = unique(quantile(sqmatrix[,i], c(.0, .20, .40, .60, 0.80, 1), na.rm = TRUE)),include.lowest = TRUE) }
+
+
+steam_matrix_v <- as(sqmatrix1, "realRatingMatrix")
+
+
+
 
 
 average_ratings_per_user <- rowMeans(ratings_steam)
@@ -107,24 +116,13 @@ ggplot()+geom_histogram(aes(x=average_ratings_per_user)) +
 
 
 
-recc_model <- Recommender(data = steam_data_train, method = "UBCF")
-
-# МЫ задаем матрицу!
-
-
-steam_predicted <- predict(object = recc_model, steam_data_test, n = 6)
-recc_predicted
-
-
-
-
 
 set.seed(100)
-steam.test.ind = sample(seq_len(nrow(steam_matrix)), size = nrow(steam_matrix)*0.2)
-steam.test = steam_matrix[steam.test.ind,]
-steam.main = steam_matrix[-steam.test.ind,]
+steam.test.ind = sample(seq_len(nrow(steam_matrix_v)), size = nrow(steam_matrix_v)*0.2)
+steam.test = steam_matrix_v[steam.test.ind,]
+steam.main = steam_matrix_v[-steam.test.ind,]
 
-recc_model <- Recommender(data = steam.test, method = "IBCF", parameter = list(k = 30))
+recc_model <- Recommender(data = steam.test, method = "UBCF", parameter = list(method = "cosine"))
 steam_predicted <- predict(object = recc_model, newdata = steam.test, n = 6)
 str(steam_predicted)
 
@@ -137,9 +135,36 @@ recc_user_1
 games_user_1 <- steam_predicted@itemLabels[recc_user_1]
 games_user_1
 
-recc_matrix <- sapply(recc_predicted@items, function(n){
-  colnames(ratings_steam)[n]
-})
-dim(recc_matrix)
+
+
+ЗАХАР!!!
+  Я вижу работу системы так
+user = (rep(NA,99))
+Я обожаю биошок(11), бордерлендс оба(12 и 13), дарк соулс 2 (29)
+неплохо отношусь к фаллауту 4 (41) и метал гиру (64)
+терпеть не могу ассассинс крид (8)
+
+оценки от 1 до 5, где 5 - обожаю, 1 - лучше бы никогда не играл
+Таким образом, вектор моих оценок будет таким:
+
+user[c(11,12,13,29)] = 5
+user[c(41,64)] = 4
+user[c(8)] = 1
+
+
+
+Рекомендация для меня:
+user = matrix(user,nrow = 1,ncol = 99)
+  user_matrix <- as(user, "realRatingMatrix")
+
+recommends <- predict(object = recc_model, newdata = user_matrix, n = 6)
+
+
+recc <- recommends@items[[1]]
+recc
+games_user <- steam_predicted@itemLabels[recc]
+games_user
+
+
 
 
