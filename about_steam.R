@@ -162,9 +162,9 @@ recommends <- predict(object = recc_model, newdata = user_matrix, n = 6)
 
 recc <- recommends@items[[1]]
 recc
-games_user <- steam_predicted@itemLabels[recc]
+games_user <- recommends@itemLabels[recc]
 games_user
 
 
-
+rsconnect::setAccountInfo(name='aashikin', token='77EDA7010750BF9A76C2917573611DC5', secret='lqtRYCfoIKNp122jNIM0jI7+SEKaCIDNrhxegcGD')
 
